@@ -1,0 +1,1058 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["views"]
+}
+
+generator erd {
+  provider = "prisma-erd-generator"
+  disabled = true
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum REGISTRATION_STATUS {
+  PENDING_ACCOUNT
+  PENDING_VERIFICATION
+  PENDING_EMERGENCY
+  PENDING_CONSENT
+  COMPLETE
+  PENDING_SOCIAL_ACCOUNT
+}
+
+enum STAGE_STORY_CONSUMPTION_STATUS {
+  UNPLAYED
+  PLAYING
+  PAUSED
+  PLAYED
+}
+
+enum STAGE_DIFFICULTY_TYPE {
+  BEGINNER
+  MODERATE
+  ADVANCED
+}
+
+enum STAGE_MEDIA_TYPES {
+  PHOTO
+  VIDEO
+}
+
+enum BADGE_TYPES {
+  STAGE_COMPLETION
+  MANUAL
+}
+
+enum STAGE_MEDIA_KEY_TYPES {
+  MAIN_IMAGE
+  SUPPLIMENTARY_IMAGE
+  ELEVATION_GRAPH_IMAGE
+  HIKER_IMAGE
+}
+
+enum PEOPLE_INTERACTIONS {
+  LOW
+  HIGH
+}
+
+enum FAMILY_FRIENDLY_STATUS {
+  YES
+  NO
+}
+
+enum FILE_REPORT_STATUS {
+  PENDING
+  RESOLVED
+  REMOVED
+}
+
+enum PASS_TYPE {
+  ADULT
+  CHILD
+}
+
+enum ORDER_STATUS {
+  ACTIVE
+  CANCELLED
+  REFUND
+}
+
+enum NOTICE_TYPE {
+  EMAIL
+  NOTIFICATION
+}
+
+enum DELIVERY_GROUP {
+  ALL
+  STAGE
+}
+
+enum NOTICE_STATUS {
+  PENDING
+  PROCESSING
+  SENT
+}
+
+enum NOTICE_VALIDITY_PERIOD {
+  YES
+  NO
+}
+
+enum CURRENCY {
+  USD
+  LKR
+}
+
+enum NATIONALITY {
+  LOCAL
+  FOREIGN
+}
+
+enum AGE_GROUP {
+  ADULT
+  CHILD
+}
+
+model Locale {
+  code                           String                           @unique @db.VarChar(2)
+  nameEn                         String                           @map("name_en") @db.VarChar(255)
+  name                           String                           @db.VarChar(255)
+  User                           User[]
+  OnboardingGuidelineTranslation OnboardingGuidelineTranslation[]
+  OnboardingMetaTranslation      OnboardingMetaTranslation?
+  StageTranslation               StageTranslation[]
+  PolicyTranslations             PolicyTranslations[]
+  PassConditionTranslation       PassConditionTranslation[]
+  PassConditionMetaTranslation   PassConditionMetaTranslation?
+  BadgeTranslation               BadgeTranslation[]
+  StageStoryTranslations         StageStoryTranslations[]
+  stageTagTranslation            StageTagTranslation[]
+  PromotionTranslation           PromotionTranslations[]
+  regionTranslation              RegionTranslation[]
+  pointOfInterestTranslation     PointOfInterestTranslation[]
+  noticeTranslation              NoticeTranslation[]
+
+  @@map("locales")
+}
+
+model EmailOtp {
+  id                   String   @id @default(uuid()) @db.Uuid
+  passwordResetUserId  String?  @map("password_reset_user_id") @db.Uuid
+  emailVerifyUserId    String?  @map("email_verify_user_id") @db.Uuid
+  email                String   @db.VarChar(255)
+  code                 String   @db.VarChar(4)
+  confirmationAttempts Int      @default(0) @map("confirmation_attempts") @db.Integer
+  expiresAt            DateTime @map("expires_at") @db.Timestamptz
+  passwordResetOtps    User?    @relation("password_reset_otps", fields: [passwordResetUserId], references: [id], onDelete: Cascade)
+  emailOtps            User?    @relation("email_otps", fields: [emailVerifyUserId], references: [id], onDelete: Cascade)
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("email_otps")
+}
+
+model User {
+  id                           String                     @id @default(uuid()) @db.Uuid
+  firstName                    String                     @map("first_name") @db.VarChar(255)
+  lastName                     String                     @map("last_name") @db.VarChar(255)
+  email                        String                     @unique @db.VarChar(255)
+  nationalityCode              String?                    @map("nationality_code") @db.VarChar(2)
+  countryCode                  String?                    @map("country_code") @db.VarChar(16)
+  contactNumber                String?                    @map("contact_number") @db.VarChar(15)
+  contactNumberNationalityCode String?                    @default("LK") @map("contact_number_nationality_code") @db.VarChar(2)
+  passportNumber               String?                    @map("passport_number") @db.VarChar(9)
+  nicNumber                    String?                    @map("nic_number") @db.VarChar(12)
+  dateOfBirth                  DateTime?                  @map("date_of_birth") @db.Timestamptz
+  emailOtpId                   String?                    @map("email_otp_id") @db.Uuid
+  emailOtp                     EmailOtp[]                 @relation("email_otps")
+  emailVerified                Boolean                    @default(false) @map("email_verified")
+  emailOtpSentAt               DateTime?                  @map("email_otp_sent_at") @db.Timestamptz
+  passwordResetOtpId           String?                    @map("password_reset_otp_id") @db.Uuid
+  passwordResetOtp             EmailOtp[]                 @relation("password_reset_otps")
+  isGoogle                     Boolean                    @default(false) @map("is_google")
+  isFacebook                   Boolean                    @default(false) @map("is_facebook")
+  isApple                      Boolean                    @default(false) @map("is_apple")
+  preferredLocaleId            String                     @default("en") @map("preferred_locale_id") @db.VarChar(2)
+  preferredLocale              Locale                     @relation(fields: [preferredLocaleId], references: [code])
+  fcmTokens                    FcmToken[]                 @relation("user")
+  registrationStatus           REGISTRATION_STATUS        @default(PENDING_ACCOUNT) @map("registration_status")
+  createdAt                    DateTime                   @default(now()) @map("created_at")
+  updatedAt                    DateTime                   @updatedAt @map("updated_at")
+  loginAt                      DateTime                   @default(now()) @map("login_at")
+  emergencyContact             EmergencyContact?
+  userFavouriteStages          UserFavouriteStage[]
+  role                         Role                       @relation(fields: [role_id], references: [id])
+  role_id                      Int                        @default(2) @db.Integer()
+  policyAcceptances            PolicyAcceptances[]
+  stageReviews                 StageReview[]
+  stageStoryConsumption        StageStoryConsumption[]
+  userAwardedBadge             UserAwardedBadge[]
+  orders                       Orders[]
+  passes                       Passes[]
+  assetKey                     AssetKeys?                 @relation(fields: [profileImageKey], references: [fileKey])
+  profileImageKey              String?                    @unique @map("profile_image_key") @db.VarChar(255)
+  Notifications                Notifications[]
+  PassOrdersAggregateView      PassOrdersAggregateView[]
+  userTrailTracking            UserTrailTracking[]
+  userTrailTrackingHistory     UserTrailTrackingHistory[]
+  deletionDate                 DateTime?                  @map("deletion_date")
+  isDeleted                    Boolean                    @default(false) @map("is_deleted")
+  AssetReportUser              AssetReportUser[]
+  noticeCreatedBy              Notice[]                   @relation("notice_created_by")
+  noticeUpdatedBy              Notice[]                   @relation("notice_updated_by")
+
+  @@index([id, email])
+  @@map("users")
+}
+
+model OnboardingGuidelineTranslation {
+  content  String @db.Text
+  order    Int
+  localeId String @default("en") @map("locale_id") @db.VarChar(2)
+  locale   Locale @relation(fields: [localeId], references: [code], onDelete: Cascade)
+
+  @@unique([order, localeId])
+  @@map("onboarding_guideline_translations")
+}
+
+model OnboardingMetaTranslation {
+  localeId    String   @unique @default("en") @map("locale_id") @db.VarChar(2)
+  locale      Locale   @relation(fields: [localeId], references: [code], onDelete: Cascade)
+  title       String   @db.VarChar(50)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("onboarding_meta_translations")
+}
+
+model FcmToken {
+  id          String @id @default(uuid()) @db.Uuid
+  userId      String @map("user_id") @db.Uuid
+  token       String @db.VarChar(255)
+  deviceToken String @map("device_token") @db.VarChar(255)
+  user        User   @relation("user", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("fcm_tokens")
+}
+
+model EmergencyContact {
+  id                           String   @id @default(uuid()) @db.Uuid
+  userId                       String   @unique @default(uuid()) @map("user_id") @db.Uuid
+  name                         String?  @db.VarChar(255)
+  countryCode                  String?  @map("country_code") @db.VarChar(16)
+  contactNumber                String?  @map("contact_number") @db.VarChar(15)
+  contactNumberNationalityCode String?  @default("LK") @map("contact_number_nationality_code") @db.VarChar(2)
+  relationship                 String?  @map("relationship") @db.VarChar(255)
+  createdAt                    DateTime @default(now()) @map("created_at")
+  updatedAt                    DateTime @updatedAt @map("updated_at")
+  User                         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("emergency_contacts")
+}
+
+model Stage {
+  id                          String                 @id @default(uuid()) @db.Uuid
+  distance                    Float
+  estimatedDuration           Int                    @map("estimated_duration") @db.Integer
+  openTime                    DateTime               @map("open_time") @db.Time()
+  closeTime                   DateTime               @map("close_time") @db.Time()
+  elevationGain               Float                  @map("elevation_gain")
+  open                        Boolean                @default(false)
+  number                      Int                    @unique @db.Integer
+  cumulativeReviews           Int                    @default(0) @map("cumulative_reviews") @db.Integer
+  reviewsCount                Int                    @default(0) @map("reviews_count") @db.Integer
+  difficultyType              STAGE_DIFFICULTY_TYPE  @default(BEGINNER) @map("difficulty_type")
+  peopleInteraction           PEOPLE_INTERACTIONS    @default(LOW) @map("people_interaction")
+  familyFriendly              FAMILY_FRIENDLY_STATUS @default(YES) @map("family_friendly_status")
+  createdAt                   DateTime               @default(now()) @map("created_at")
+  updatedAt                   DateTime               @updatedAt @map("updated_at")
+  usersFavouriteStage         UserFavouriteStage[]
+  stagesTranslation           StageTranslation[]
+  badge                       Badge?
+  stageReviews                StageReview[]
+  stageMedia                  StageMedia[]
+  PoiStage                    PointOfInterestStage[]
+  StageStory                  StageStory[]
+  stageTagAssociation         StageTagAssociation[]
+  orders                      Orders[]
+  passes                      Passes[]
+  kmlFileKey                  String?                @map("kml_file_key") @db.VarChar(255)
+  PassInventory               PassInventory[]
+  stageRegion                 StageRegion[]
+  startPoint                  Float[]                @map("start_point")
+  endPoint                    Float[]                @map("end_point")
+  maximumAltitude             Float?                 @map("maximum_altitude")
+  userAwardedBadges           UserAwardedBadge[]
+  StageClosure                StageClosure[]
+  notice                      Notice[]
+  stageBasePrices             StageBasePrices[]
+  stageSeasonalPrices   StageSeasonalPrices[]
+  stageSeasonalPriceGroups    StageSeasonalPriceGroups[]
+  
+
+  @@map("stages")
+}
+
+model StageTranslation {
+  stage       Stage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  stageId     String   @map("stage_id") @db.Uuid
+  locale      Locale   @relation(fields: [localeId], references: [code], onDelete: Cascade)
+  localeId    String   @default("en") @map("locale_id") @db.VarChar(2)
+  stageHead   String   @map("stage_head") @db.VarChar(255)
+  stageTail   String   @map("stage_tail") @db.VarChar(255)
+  description String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@id([stageId, localeId])
+  @@map("stage_translations")
+}
+
+model UserFavouriteStage {
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stage   Stage  @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  userId  String @map("user_id") @db.Uuid
+  stageId String @map("stage_id") @db.Uuid
+
+  @@id([userId, stageId])
+  @@map("user_favourite_stages")
+}
+
+model Role {
+  id             Int              @unique @default(autoincrement())
+  name           String           @unique() @db.VarChar()
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime?        @updatedAt @map("updated_at")
+  deletedAt      DateTime?        @map("deleted_at") @db.Timestamp()
+  User           User[]
+  RolePermission RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id             Int     @unique @default(autoincrement())
+  action         String  @db.VarChar()
+  permissionName String  @default("default permission ") @map("permission_name") @db.VarChar()
+  subject        String  @db.VarChar()
+  inverted       Boolean @default(false)
+  conditions     Json?   @db.JsonB()
+  reason         String? @db.Text()
+
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime?        @updatedAt @map("updated_at")
+  deletedAt      DateTime?        @map("deleted_at") @db.Timestamp()
+  RolePermission RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(uuid()) @db.Uuid
+  roleId       Int
+  permissionId Int
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamp()
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model Policy {
+  id                 String               @id @default(uuid()) @db.Uuid
+  order              Int?                 @db.SmallInt
+  parentPolicyId     String?              @map("parent_policy_id") @db.Uuid
+  parentPolicy       Policy?              @relation("parentPolicy", fields: [parentPolicyId], references: [id], onDelete: Cascade)
+  childPolicies      Policy[]             @relation("parentPolicy")
+  acceptanceRequired Boolean              @default(false) @map("acceptance_required")
+  icon               String?              @db.VarChar(255)
+  isGroupParent      Boolean              @default(false) @map("is_group_parent")
+  policyTranslations PolicyTranslations[] @relation("policy")
+  slug               String?              @unique @db.VarChar(255)
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+  policyAcceptances  PolicyAcceptances[]
+
+  @@map("policies")
+}
+
+model PolicyTranslations {
+  policyId    String   @map("policy_id") @db.Uuid
+  policy      Policy   @relation("policy", fields: [policyId], references: [id], onDelete: Cascade)
+  localeId    String   @default("en") @map("locale_id") @db.VarChar(2)
+  locale      Locale   @relation(fields: [localeId], references: [code], onDelete: Cascade)
+  title       String   @db.VarChar(60)
+  description String?  @db.VarChar(255)
+  content     String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@id([policyId, localeId])
+  @@map("policy_translations")
+}
+
+model PolicyAcceptances {
+  policyId  String   @map("policy_id") @db.Uuid
+  policy    Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([policyId, userId])
+  @@map("policy_acceptances")
+}
+
+model PassConditionTranslation {
+  content  String @db.Text
+  order    Int
+  localeId String @default("en") @map("locale_id") @db.VarChar(2)
+  locale   Locale @relation(fields: [localeId], references: [code], onDelete: Cascade)
+
+  @@unique([order, localeId])
+  @@map("pass_condition_translations")
+}
+
+model PassConditionMetaTranslation {
+  localeId    String   @unique @default("en") @map("locale_id") @db.VarChar(2)
+  locale      Locale   @relation(fields: [localeId], references: [code], onDelete: Cascade)
+  title       String   @db.VarChar(50)
+  subTitle    String   @db.VarChar(50)
+  description String   @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("pass_condition_meta_translations")
+}
+
+model StageStory {
+  id                     String                   @id @default(uuid()) @db.Uuid
+  latitude               Float
+  longitude              Float
+  createdAt              DateTime                 @default(now()) @map("created_at")
+  updatedAt              DateTime                 @updatedAt @map("updated_at")
+  stageId                String?                  @map("stage_id") @db.Uuid
+  stage                  Stage?                   @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  stageStoryTranslations StageStoryTranslations[]
+  StageStoryConsumption  StageStoryConsumption[]
+
+  @@map("stage_stories")
+}
+
+model StageStoryTranslations {
+  localeId     String     @default("en") @map("locale_id") @db.VarChar(2)
+  locale       Locale     @relation(fields: [localeId], references: [code], onDelete: Cascade)
+  title        String     @db.VarChar(255)
+  description  String     @db.Text
+  audioKey     String     @unique @db.VarChar(255)
+  assetKey     AssetKeys  @relation(fields: [audioKey], references: [fileKey])
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  stageStoryId String     @map("stage_story_id") @db.Uuid
+  stageStory   StageStory @relation(fields: [stageStoryId], references: [id], onDelete: Cascade)
+
+  @@id([stageStoryId, localeId])
+  @@map("stage_story_translations")
+}
+
+model StageStoryConsumption {
+  stageStoryId String                         @map("stage_story_id") @db.Uuid
+  stageStory   StageStory                     @relation(fields: [stageStoryId], references: [id], onDelete: Cascade)
+  userId       String                         @map("user_id") @db.Uuid
+  user         User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status       STAGE_STORY_CONSUMPTION_STATUS @default(UNPLAYED) @map("status")
+  timestamp    String?                        @db.VarChar(255)
+
+  @@id([stageStoryId, userId])
+  @@map("stage_stories_consumptions")
+}
+
+model StageReview {
+  id        String   @id @default(uuid()) @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id") @db.Uuid
+  stage     Stage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  stageId   String   @map("stage_id") @db.Uuid
+  rating    Int      @db.SmallInt()
+  review    String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("stage_reviews")
+}
+
+model AssetKeys {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  fileKey                String                  @unique @db.VarChar(255)
+  module                 String                  @db.VarChar(255)
+  createdAt              DateTime                @default(now()) @map("created_at")
+  updatedAt              DateTime                @updatedAt @map("updated_at")
+  StageMedia             StageMedia[]
+  StageStoryTranslations StageStoryTranslations?
+  Promotions             Promotions?
+  badge                  Badge?
+  pointOfInterest        PointOfInterest?
+  User                   User?
+  AssetReport            AssetReport[]
+
+  @@map("asset_keys")
+}
+
+model Badge {
+  id               String             @id @default(uuid()) @db.Uuid
+  badgeKey         String             @unique @map("badge_key") @db.VarChar(255)
+  assetKeys        AssetKeys          @relation(fields: [badgeKey], references: [fileKey])
+  type             BADGE_TYPES        @default(MANUAL)
+  stageId          String?            @unique @default(uuid()) @map("stage_id") @db.Uuid
+  stage            Stage?             @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  badgeTranslation BadgeTranslation[] @relation("badge")
+  userAwardedBadge UserAwardedBadge[]
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  @@map("badges")
+}
+
+model BadgeTranslation {
+  badgeId     String   @map("badge_id") @db.Uuid
+  badge       Badge    @relation("badge", fields: [badgeId], references: [id], onDelete: Cascade)
+  localeId    String   @default("en") @map("locale_id") @db.VarChar(2)
+  locale      Locale   @relation(fields: [localeId], references: [code], onDelete: Cascade)
+  name        String   @db.VarChar(255)
+  description String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@id([badgeId, localeId])
+  @@map("badge_translations")
+}
+
+model UserAwardedBadge {
+  id        String   @id @default(uuid()) @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  pass      Passes?  @relation(fields: [passId], references: [id], onDelete: Cascade)
+  stage     Stage?   @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id") @db.Uuid
+  badgeId   String   @map("badge_id") @db.Uuid
+  stageId   String?  @map("stage_id") @db.Uuid
+  passId    String?  @map("pass_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("user_awarded_badges")
+}
+
+model Promotions {
+  id                    String                  @id @default(uuid()) @db.Uuid
+  url                   String                  @db.Text
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
+  promotionTranslations PromotionTranslations[]
+  assetKeys             AssetKeys               @relation(fields: [mediaKey], references: [fileKey])
+  mediaKey              String                  @unique @map("media_key") @db.VarChar(255)
+  isActive              Boolean                 @default(true) @map("is_active")
+
+  @@map("promotions")
+}
+
+model PromotionTranslations {
+  localeId    String     @default("en") @map("locale_id") @db.VarChar(2)
+  locale      Locale     @relation(fields: [localeId], references: [code], onDelete: Cascade)
+  promotionId String     @map("promotion_id") @db.Uuid
+  promotion   Promotions @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  title       String     @db.VarChar(50)
+  description String     @db.VarChar(500)
+  ctaText     String     @map("cta_text") @db.VarChar(50)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  @@id([localeId, promotionId])
+  @@map("promotion_translations")
+}
+
+model StageMedia {
+  id        String                @id @default(uuid()) @db.Uuid
+  stage     Stage                 @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  stageId   String                @map("stage_id") @db.Uuid
+  userId    String                @map("user_id") @db.Uuid
+  type      STAGE_MEDIA_TYPES     @default(PHOTO) @map("type")
+  mediaType STAGE_MEDIA_KEY_TYPES @default(HIKER_IMAGE) @map("media_type")
+  mediaKey  String                @map("media_key") @db.VarChar(255)
+  latitude  Float?                @map("latitude")
+  longitude Float?                @map("longitude")
+  assetKey  AssetKeys             @relation(fields: [mediaKey], references: [fileKey], onDelete: Cascade, onUpdate: Cascade)
+  createdAt DateTime              @default(now()) @map("created_at")
+  updatedAt DateTime              @updatedAt @map("updated_at")
+
+  @@map("stage_media")
+}
+
+model PointOfInterest {
+  id                         String                       @id @default(uuid()) @db.Uuid
+  latitude                   Float
+  longitude                  Float
+  createdAt                  DateTime                     @default(now()) @map("created_at")
+  updatedAt                  DateTime                     @updatedAt @map("updated_at")
+  mediaKey                   String?                      @unique @map("media_key") @db.VarChar(255)
+  assetKey                   AssetKeys?                   @relation(fields: [mediaKey], references: [fileKey])
+  pointOfInterestTranslation PointOfInterestTranslation[]
+  pointOfInterestStage       PointOfInterestStage[]
+
+  @@map("point_of_interest")
+}
+
+model PointOfInterestStage {
+  pointOfInterestId String          @map("point_of_interest_id") @db.Uuid
+  pointOfInterest   PointOfInterest @relation(fields: [pointOfInterestId], references: [id], onDelete: Cascade)
+  stageId           String          @map("stage_id") @db.Uuid
+  stage             Stage           @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  @@id([pointOfInterestId, stageId])
+  @@map("point_of_interest_stage")
+}
+
+model PointOfInterestTranslation {
+  localeId          String          @default("en") @map("locale_id") @db.VarChar(2)
+  locale            Locale          @relation(fields: [localeId], references: [code], onDelete: Cascade)
+  title             String          @db.VarChar(255)
+  description       String          @db.Text
+  pointOfInterestId String          @map("poi_id") @db.Uuid
+  pointOfInterest   PointOfInterest @relation(fields: [pointOfInterestId], references: [id], onDelete: Cascade)
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  @@id([pointOfInterestId, localeId])
+  @@map("point_of_interest_translations")
+}
+
+model StageTag {
+  id                  String                @id @default(uuid()) @db.Uuid
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+  stageTagTranslation StageTagTranslation[]
+  stageTagAssociation StageTagAssociation[]
+
+  @@map("stage_tags")
+}
+
+model StageTagTranslation {
+  stageTag   StageTag @relation(fields: [stageTagId], references: [id], onDelete: Cascade)
+  stageTagId String   @map("stage_tag_id") @db.Uuid
+  locale     Locale   @relation(fields: [localeId], references: [code], onDelete: Cascade)
+  localeId   String   @default("en") @map("locale_id") @db.VarChar(2)
+  name       String   @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@id([stageTagId, localeId])
+  @@map("stage_tag_translations")
+}
+
+model StageTagAssociation {
+  stage      Stage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  stageId    String   @map("stage_id") @db.Uuid
+  stageTag   StageTag @relation(fields: [stageTagId], references: [id], onDelete: Cascade)
+  stageTagId String   @map("stage_tag_id") @db.Uuid
+
+  @@id([stageId, stageTagId])
+  @@map("stage_tag_associations")
+}
+
+model Orders {
+  id            String       @id @default(uuid()) @db.Uuid
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String       @map("user_id") @db.Uuid
+  stage         Stage        @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  stageId       String       @map("stage_id") @db.Uuid
+  reservedFor   DateTime     @default(now()) @map("reserved_for") @db.Date
+  isRescheduled Boolean      @default(false) @map("is_rescheduled")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  passes        Passes[]
+  status        ORDER_STATUS @default(ACTIVE)
+
+  @@map("orders")
+}
+
+model Passes {
+  id                       String                     @id @default(uuid()) @db.Uuid
+  stage                    Stage                      @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  stageId                  String                     @map("stage_id") @db.Uuid
+  user                     User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                   String                     @map("user_id") @db.Uuid
+  order                    Orders                     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId                  String                     @map("order_id") @db.Uuid
+  type                     PASS_TYPE                  @default(ADULT)
+  activated                Boolean                    @default(false)
+  isTransferred            Boolean                    @default(false) @map("is_transferred")
+  reservedFor              DateTime                   @default(now()) @map("reserved_for") @db.Date
+  isCancelled              Boolean                    @default(false) @map("is_cancelled")
+  expiredAt                DateTime                   @map("expired_at")
+  cancelledAt              DateTime?                  @map("cancelled_at")
+  passId                   Int?                       @map("pass_id")
+  createdAt                DateTime                   @default(now()) @map("created_at")
+  updatedAt                DateTime                   @updatedAt @map("updated_at")
+  userTrailTracking        UserTrailTracking?
+  userTrailTrackingHistory UserTrailTrackingHistory[]
+  UserAwardedBadge         UserAwardedBadge[]
+
+  @@map("passes")
+}
+
+model PassInventory {
+  id        String   @id @default(uuid()) @db.Uuid
+  stage     Stage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  stageId   String   @map("stage_id") @db.Uuid
+  date      DateTime @db.Date
+  quantity  Int      @db.Integer
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("pass_inventories")
+}
+
+view PassOrdersAggregateView {
+  orderId     String   @map("order_id") @db.Uuid
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String   @map("user_id") @db.Uuid
+  stageId     String   @map("stage_id") @db.Uuid
+  reservedFor DateTime @map("reserved_for") @db.Date
+  passCount   Int      @map("pass_count")
+  expiredAt   DateTime @map("expired_at")
+
+  @@id([orderId, stageId, userId])
+  @@map("pass_orders_aggregate_view")
+}
+
+model Region {
+  id                Int                 @unique @default(autoincrement())
+  stageRegion       StageRegion[]
+  regionTranslation RegionTranslation[]
+
+  @@map("regions")
+}
+
+model StageRegion {
+  stage    Stage  @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  stageId  String @map("stage_id") @db.Uuid
+  region   Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  regionId Int    @map("region_id")
+
+  @@id([stageId, regionId])
+  @@map("stage_regions")
+}
+
+model RegionTranslation {
+  id        Int      @unique @default(autoincrement())
+  region    Region   @relation(fields: [regionId], references: [id])
+  regionId  Int      @map("region_id")
+  locale    Locale   @relation(fields: [localeId], references: [code])
+  localeId  String   @default("en") @map("locale_id") @db.VarChar(2)
+  name      String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("region_translations")
+}
+
+model Notifications {
+  id               String      @id @default(uuid()) @db.Uuid
+  title            String      @db.VarChar(255)
+  body             String      @db.VarChar(255)
+  token            String?     @db.VarChar(500)
+  status           Boolean     @default(false)
+  error            String?     @db.Text
+  notificationType NOTICE_TYPE @default(NOTIFICATION) @map("notification_type")
+  isRead           Boolean     @default(false) @map("is_read")
+  noticeId         String?     @map("notice_id") @db.Uuid
+  notice           Notice?     @relation(fields: [noticeId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String      @map("user_id") @db.Uuid
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  @@map("notifications")
+}
+
+view PassInventoryAggregateView {
+  stage_id          String   @db.Uuid()
+  date              DateTime @db.Date()
+  inventoryQuantity Int      @map("inventory_quantity")
+  reservedQuantity  Int      @map("reserved_quantity")
+  cancelledQuantity Int      @map("cancelled_quantity")
+
+  @@id([stage_id, date])
+  @@map("pass_inventory_aggregate_view")
+}
+
+model AssetReport {
+  id              String             @id @default(uuid()) @db.Uuid
+  status          FILE_REPORT_STATUS @default(PENDING)
+  fileKey         String?            @unique @map("file_key") @db.VarChar(255)
+  asset           AssetKeys?         @relation(fields: [fileKey], references: [fileKey], onDelete: Cascade, onUpdate: Cascade)
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  assetReportUser AssetReportUser[]
+
+  @@map("asset_reports")
+}
+
+model AssetReportUser {
+  id            String       @id @default(uuid()) @db.Uuid
+  reportedDate  DateTime     @default(now()) @map("reported_date") @db.Timestamptz
+  comment       String?
+  user          User?        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userId        String?      @db.Uuid
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  createdAt     DateTime     @updatedAt @map("created_at")
+  AssetReport   AssetReport? @relation(fields: [assetReportId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  assetReportId String?      @db.Uuid
+
+  @@unique([userId, assetReportId])
+}
+
+model UserTrailTracking {
+  passesId         String   @unique @map("passes_id") @db.Uuid
+  passes           Passes   @relation(fields: [passesId], references: [id])
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String   @map("user_id") @db.Uuid
+  averagePace      Float    @map("average_pace")
+  averageSpeed     Float    @map("average_speed")
+  distanceTraveled Float    @map("distance_traveled")
+  elevationGain    Float    @map("elevation_gain")
+  elevationLoss    Float    @map("elevation_loss")
+  latitude         Float
+  longitude        Float
+  totalTime        Float    @map("total_time")
+  startTime        DateTime @map("start_time")
+  timestamp        DateTime
+  completion       Float
+  isCompleted      Boolean  @default(false) @map("is_completed")
+  isActiveTrack    Boolean  @default(false) @map("active_track")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@id([userId, passesId])
+  @@map("user_trail_tracking")
+}
+
+model UserTrailTrackingHistory {
+  id               String   @id @default(uuid()) @db.Uuid
+  passesId         String   @map("passes_id") @db.Uuid
+  passes           Passes   @relation(fields: [passesId], references: [id])
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String   @map("user_id") @db.Uuid
+  averagePace      Float    @map("average_pace")
+  averageSpeed     Float    @map("average_speed")
+  distanceTraveled Float    @map("distance_traveled")
+  elevationGain    Float    @map("elevation_gain")
+  elevationLoss    Float    @map("elevation_loss")
+  latitude         Float
+  longitude        Float
+  totalTime        Float    @map("total_time")
+  startTime        DateTime @map("start_time")
+  timestamp        DateTime
+  completion       Float
+  isCompleted      Boolean  @default(false) @map("is_completed")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("user_trail_tracking_history")
+}
+
+model StageClosure {
+  id         String   @id @default(uuid()) @db.Uuid
+  stage      Stage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  stageId    String   @map("stage_id") @db.Uuid
+  closedDate DateTime @map("closed_date") @db.Date
+  reason     String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("stage_closure")
+}
+
+model UserDeleteRequest {
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @map("token") @db.Uuid
+  expiredAt DateTime @map("expired_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@id([userId, token])
+  @@map("user_delete_request")
+}
+
+model Notice {
+  id                      String                 @id @default(uuid()) @db.Uuid
+  createdBy               String                 @map("created_by") @db.Uuid
+  updatedBy               String                 @map("updated_by") @db.Uuid
+  category                String?                @db.Uuid
+  type                    NOTICE_TYPE            @default(EMAIL)
+  deliveryGroup           DELIVERY_GROUP         @default(ALL) @map("delivery_group")
+  status                  NOTICE_STATUS          @default(PENDING)
+  isValidityPeriodDefined NOTICE_VALIDITY_PERIOD @default(NO) @map("is_validity_period_defined")
+  startDate               DateTime               @map("start_date") @db.Timestamptz
+  endDate                 DateTime               @map("end_date") @db.Timestamptz
+  createdAt               DateTime               @default(now()) @map("created_at")
+  updatedAt               DateTime               @updatedAt @map("updated_at")
+  createdByUser           User                   @relation("notice_created_by", fields: [createdBy], references: [id])
+  updatedByUser           User                   @relation("notice_updated_by", fields: [updatedBy], references: [id])
+  stage                   Stage?                 @relation(fields: [category], references: [id])
+  noticeTranslation       NoticeTranslation[]
+  Notifications           Notifications[]
+
+  @@map("notices")
+}
+
+model StageBasePrices {
+  id                String              @id @default(uuid()) @db.Uuid
+  stageId           String              @map("stage_id") @db.Uuid
+  currency          CURRENCY            @default(USD)
+  nationality       NATIONALITY         @default(LOCAL)
+  ageGroup          AGE_GROUP           @default(ADULT)
+  price             Float         
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+  stage             Stage               @relation(fields: [stageId], references: [id])
+  
+  @@map("stage_base_prices")
+}
+
+model StageSeasonalPriceGroups {
+  id                    String              @id @default(uuid()) @db.Uuid
+  stageId               String              @map("stage_id") @db.Uuid
+  startDate             DateTime            @map("start_date") @db.Timestamptz
+  endDate               DateTime            @map("end_date") @db.Timestamptz
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+  stage                 Stage?               @relation(fields: [stageId], references: [id])
+  stageSeasonalPrices   StageSeasonalPrices[]
+  
+  @@map("stage_seasonal_price_groups")
+}
+
+model StageSeasonalPrices {
+  id                            String                      @id @default(uuid()) @db.Uuid
+  stageId                       String                      @map("stage_id") @db.Uuid
+  stageSeasonalPriceGroupId     String                      @map("stage_seasonal_price_group_id") @db.Uuid
+  currency                      CURRENCY                    @default(USD)
+  nationality                   NATIONALITY                 @default(LOCAL)
+  ageGroup                      AGE_GROUP                   @default(ADULT)
+  price                         Float         
+  createdAt                     DateTime                    @default(now()) @map("created_at")
+  updatedAt                     DateTime                    @updatedAt @map("updated_at")
+  stage                         Stage                       @relation(fields: [stageId], references: [id])
+  stageSeasonalPriceGroup       StageSeasonalPriceGroups    @relation(fields: [stageSeasonalPriceGroupId], references: [id])
+  
+  @@map("stage_seasonal_prices")
+}
+
+
+model NoticeTranslation {
+  noticeId    String   @map("notice_id") @db.Uuid
+  localeId    String   @default("en") @map("locale_id") @db.VarChar(2)
+  title       String   @db.VarChar(255)
+  description String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  notice      Notice   @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  locale      Locale   @relation(fields: [localeId], references: [code], onDelete: Cascade)
+
+  @@id([noticeId, localeId])
+  @@map("notice_translations")
+}
+
+view PromotionEn {
+  id          String   @id @default(uuid()) @db.Uuid
+  url         String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  title       String   @db.VarChar(50)
+  description String   @db.VarChar(500)
+  ctaText     String   @map("cta_text") @db.VarChar(50)
+  isActive    Boolean  @default(true) @map("is_active")
+
+  @@map("promotion_en")
+}
+
+view StageStoryEn {
+  id          String   @id @default(uuid()) @db.Uuid
+  latitude    Float
+  longitude   Float
+  stageId     String?  @map("stage_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  title       String   @db.VarChar(50)
+  description String   @db.Text
+  stageNumber Int?     @map("stage_number")
+
+  @@map("stage_story_en")
+}
+
+view PointOfInterestEn {
+  id                         String   @id @default(uuid()) @db.Uuid
+  latitude                   Float
+  longitude                  Float
+  createdAt                  DateTime @default(now()) @map("created_at")
+  updatedAt                  DateTime @updatedAt @map("updated_at")
+  mediaKey                   String?  @unique @map("media_key") @db.VarChar(255)
+  title                      String   @db.VarChar(255)
+  description                String   @db.Text
+  pointOfInterestTranslation Json     @map("point_of_interest_translation")
+  pointOfInterestStage       Json     @map("point_of_interest_stage")
+
+  @@map("point_of_interest_en")
+}
+
+view StageTagEn {
+  id            String   @id @default(uuid()) @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  name          String   @db.VarChar(50)
+  relatedStages Int[]    @map("related_stages")
+
+  @@map("stage_tag_en")
+}
+
+view BadgeEn {
+  id          String   @id @default(uuid()) @db.Uuid
+  badgeKey    String   @unique @map("badge_key") @db.VarChar(255)
+  type        String   @db.VarChar(255)
+  name        String   @db.VarChar(255)
+  description String   @db.VarChar(255)
+  stageId     String?  @unique @default(uuid()) @map("stage_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("badge_en")
+}
+
+view NoticeEn {
+  id                String         @id @default(uuid()) @db.Uuid
+  createdBy         String         @map("created_by") @db.Uuid
+  category          String?        @db.Uuid
+  type              NOTICE_TYPE    @default(EMAIL)
+  deliveryGroup     DELIVERY_GROUP @default(ALL) @map("delivery_group")
+  status            NOTICE_STATUS  @default(PENDING)
+  startDate         DateTime       @map("start_date") @db.Timestamptz
+  endDate           DateTime       @map("end_date") @db.Timestamptz
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  title             String
+  noticeTranslation Json           @map("notice_translation")
+  noticeStage       Json           @map("notice_stage")
+
+  @@map("notice_en")
+}

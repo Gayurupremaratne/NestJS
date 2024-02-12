@@ -1,0 +1,2 @@
+-- DropEnum
+DROP TYPE "STAGE_MEDIA_TYPES";

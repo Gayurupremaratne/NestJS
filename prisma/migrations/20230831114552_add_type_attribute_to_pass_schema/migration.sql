@@ -1,0 +1,5 @@
+-- CreateEnum
+CREATE TYPE "PASS_TYPE" AS ENUM ('ADULT', 'CHILD');
+
+-- AlterTable
+ALTER TABLE "passes" ADD COLUMN     "type" "PASS_TYPE" NOT NULL DEFAULT 'ADULT';

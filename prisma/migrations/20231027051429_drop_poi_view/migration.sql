@@ -1,0 +1,1 @@
+DROP VIEW if exists point_of_interest_en;

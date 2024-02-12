@@ -1,0 +1,1 @@
+DROP VIEW if exists stage_story_en;

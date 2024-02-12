@@ -1,0 +1,16 @@
+/*
+  Warnings:
+
+  - The values [MAP_IMAGE] on the enum `STAGE_MEDIA_KEY_TYPES` will be removed. If these variants are still used in the database, this will fail.
+
+*/
+-- AlterEnum
+BEGIN;
+CREATE TYPE "STAGE_MEDIA_KEY_TYPES_new" AS ENUM ('MAIN_IMAGE', 'SUPPLIMENTARY_IMAGE', 'ELEVATION_GRAPH_IMAGE');
+ALTER TABLE "stage_media" ALTER COLUMN "media_type" DROP DEFAULT;
+ALTER TABLE "stage_media" ALTER COLUMN "media_type" TYPE "STAGE_MEDIA_KEY_TYPES_new" USING ("media_type"::text::"STAGE_MEDIA_KEY_TYPES_new");
+ALTER TYPE "STAGE_MEDIA_KEY_TYPES" RENAME TO "STAGE_MEDIA_KEY_TYPES_old";
+ALTER TYPE "STAGE_MEDIA_KEY_TYPES_new" RENAME TO "STAGE_MEDIA_KEY_TYPES";
+DROP TYPE "STAGE_MEDIA_KEY_TYPES_old";
+ALTER TABLE "stage_media" ALTER COLUMN "media_type" SET DEFAULT 'SUPPLIMENTARY_IMAGE';
+COMMIT;

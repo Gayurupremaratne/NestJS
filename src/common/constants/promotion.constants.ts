@@ -1,0 +1,1 @@
+export const PROMOTION_ACTIVE_COUNT = 5;

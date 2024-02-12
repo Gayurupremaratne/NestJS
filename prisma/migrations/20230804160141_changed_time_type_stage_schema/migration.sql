@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "stages" ALTER COLUMN "open_time" SET DATA TYPE TIME,
+ALTER COLUMN "close_time" SET DATA TYPE TIME;
